@@ -94,11 +94,22 @@ def A_program():
     conn.sendall(",".join(map(str, encrypted_handshake_final)).encode())
     print(f"\U0001F512 Sent handshake final message (N2): {handshake_final}\n")
 
-    # Receive encrypted DES key
+    # Step 4: Receive encrypted DES key
     encrypted_des_key = conn.recv(1024).decode('utf-8')
-    print(f"\U0001F512 Received encrypted DES key: {encrypted_des_key}\n")
-    des_key = rsa.decrypt_rsa([int(x) for x in encrypted_des_key.split(',')], private_key[0], private_key[1])
-    print(f"\U0001F513 Decrypted DES key: {des_key}\n")
+    print(f"🔒 Received double-encrypted DES key: {encrypted_des_key}")
+
+    # Step 4.1: Decrypt with A's private key
+    decrypted_once = rsa.decrypt_rsa(
+        [int(x) for x in encrypted_des_key.split(',')], private_key[0], private_key[1]
+    )
+    print(f"🔓 DES key after decrypting with A's private key: {decrypted_once}")
+
+    # Step 4.2: Decrypt with B's public key
+    decrypted_twice = rsa.decrypt_rsa(
+        [int(x) for x in decrypted_once.split(',')], b_e, b_N
+    )
+    des_key = decrypted_twice
+    print(f"🔓 Fully decrypted DES key: {des_key}\n")
 
     while True:
         data = conn.recv(1024)

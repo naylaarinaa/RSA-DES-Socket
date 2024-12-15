@@ -93,10 +93,21 @@ def B_program():
     # Step 4: Generate DES key and send encrypted DES key
     des_key = "ABCD1234"
     print(f"🔑 DES key: {des_key}")
-    encrypted_des_key = ','.join(map(str, rsa.encrypt_rsa(des_key, e, N)))
-    print(f"🔒 Encrypted DES key to send: {encrypted_des_key}")
-    B_socket.sendall(encrypted_des_key.encode())
-    print(f"✅ Sent encrypted DES key to A.\n")
+
+    # Step 4.1: Encrypt DES key with B's private key
+    encrypted_des_key_with_b_priv = rsa.encrypt_rsa(des_key, private_key[0], private_key[1])
+    print(f"🔒 DES key encrypted with B's private key: {encrypted_des_key_with_b_priv}")
+
+    # Step 4.2: Encrypt result with A's public key
+    encrypted_des_key_final = rsa.encrypt_rsa(
+        ",".join(map(str, encrypted_des_key_with_b_priv)), e, N
+    )
+    print(f"🔒 DES key encrypted with A's public key: {encrypted_des_key_final}")
+
+    # Step 4.3: Send final encrypted DES key to A
+    B_socket.sendall(",".join(map(str, encrypted_des_key_final)).encode())
+    print(f"✅ Sent double-encrypted DES key to A.\n")
+
 
     while True:
         message_to_send = input("➡️  Send message to A: ")
