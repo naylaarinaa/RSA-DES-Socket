@@ -85,14 +85,13 @@ def A_program():
         conn.close()
         return
 
-    print(f"\u2705 Sucessful Handshake Step 2\n")
     print(f"\u2705 Received N1={received_N1}, N2={N2}\n")
 
     # Step 3: Send back N2 to B for final handshake verification
     handshake_final = f"{N2}"
     encrypted_handshake_final = rsa.encrypt_rsa(handshake_final, b_e, b_N)
     conn.sendall(",".join(map(str, encrypted_handshake_final)).encode())
-    print(f"\U0001F512 Sent handshake final message (N2): {handshake_final}\n")
+    print(f"\U0001F512 Sent second handshake message (N2): {handshake_final}\n")
 
     # Step 4: Receive encrypted DES key
     encrypted_des_key = conn.recv(1024).decode('utf-8')
