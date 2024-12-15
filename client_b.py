@@ -1,6 +1,6 @@
 import socket
-import des
 import rsa
+import des
 
 def register_with_pka(identifier, public_key):
     host = socket.gethostname()
@@ -11,9 +11,12 @@ def register_with_pka(identifier, public_key):
         message = f"REGISTER;{identifier};{public_key[0]},{public_key[1]}"
         pka_socket.sendall(message.encode())
         response = pka_socket.recv(1024).decode('utf-8')
-        return response
+        status, pka_public_key = response.split(';')
+        e, N = map(int, pka_public_key.split(','))
+        print(f"🔒 Received PKA public key: (e={e}, N={N})")
+        return status, (e, N)
 
-def request_key_from_pka(identifier):
+def request_key_from_pka(identifier, pka_public_key):
     host = socket.gethostname()
     port = 6060
 
@@ -21,28 +24,31 @@ def request_key_from_pka(identifier):
         pka_socket.connect((host, port))
         message = f"REQUEST;{identifier};"
         pka_socket.sendall(message.encode())
-        response = pka_socket.recv(1024).decode('utf-8')
-        return response
+        encrypted_response = pka_socket.recv(1024).decode('utf-8')
+        print(f"🔒 Received encrypted public key for {identifier}: {encrypted_response}")
+        encrypted_key = [int(x) for x in encrypted_response.split(',')]
+        decrypted_key = rsa.decrypt_rsa(encrypted_key, pka_public_key[0], pka_public_key[1])
+        print(f"🔓 Decrypted public key for {identifier}: {decrypted_key}")
+        return decrypted_key
 
 def B_program():
     host = socket.gethostname()
     port = 5050
 
     # Generate RSA keys for B
-    (B_public_key, B_private_key) = rsa.generate_keys(bits=8)
-    print(f"🔑 B RSA Public Key: (e={B_public_key[0]}, N={B_public_key[1]})")
-    print(f"🔒 B RSA Private Key: (d={B_private_key[0]}, N={B_private_key[1]})\n")
+    (public_key, private_key) = rsa.generate_keys(bits=16)
+    print(f"🔑 B RSA Public Key: (e={public_key[0]}, N={public_key[1]})")
+    print(f"🔒 B RSA Private Key: (d={private_key[0]}, N={private_key[1]})\n")
 
     # Register public key with PKA
-    register_with_pka("B", B_public_key)
-    print("Registered public key with PKA.\n")
+    status, pka_public_key = register_with_pka("B", public_key)
+    print(f"✅ Registered with PKA: {status}\n")
 
     # Request A's public key from PKA
-    a_public_key = request_key_from_pka("A")
+    a_public_key = request_key_from_pka("A", pka_public_key)
     if a_public_key == "NOT_FOUND":
         print("A's public key not found in PKA.\n")
         return
-
     e, N = map(int, a_public_key.split(','))
     print(f"Received A's public key from PKA: (e={e}, N={N})\n")
 
@@ -57,8 +63,9 @@ def B_program():
 
     # Encrypt DES key using RSA
     encrypted_des_key = ','.join(map(str, rsa.encrypt_rsa(des_key, e, N)))
+    print(f"🔒 Encrypted DES key to send: {encrypted_des_key}")
     B_socket.sendall(encrypted_des_key.encode())
-    print(f"🔑 Sent encrypted DES key to A: {encrypted_des_key}\n")
+    print(f"✅ Sent encrypted DES key to A.\n")
 
     while True:
         message_to_send = input("➡️  Send message to A: ")

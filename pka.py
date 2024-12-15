@@ -1,7 +1,6 @@
-
 import socket
 import threading
-import sys
+import rsa  # Import rsa functions from rsa.py
 
 class PKA:
     def __init__(self):
@@ -10,6 +9,11 @@ class PKA:
         self.clients_connected = {'A': False, 'B': False}  # Track whether A and B are connected
         self.clients_requested = {'A': False, 'B': False}  # Track if A and B have requested each other's keys
         self.stop_event = threading.Event()  # Event to signal server stop
+
+        # Generate RSA key pair for PKA itself
+        self.pka_public_key, self.pka_private_key = rsa.generate_keys(bits=16)  # Generate small key for demonstration
+        print(f"🔑 PKA Public Key: {self.pka_public_key}")
+        print(f"🔒 PKA Private Key: {self.pka_private_key}")
 
     def handle_client(self, conn, addr):
         identifier = None  # Track which client is connecting
@@ -23,7 +27,7 @@ class PKA:
             if action == 'REGISTER':
                 self.public_keys[identifier] = key
                 e, N = key.split(',')
-                response = "REGISTERED"
+                response = f"REGISTERED;{self.pka_public_key[0]},{self.pka_public_key[1]}"
                 print(f"✅ {identifier}'s public key registered.")
                 print(f"🔑 {identifier}'s Public Key: (e={e}, N={N})")
 
@@ -33,24 +37,21 @@ class PKA:
                         print(f"⚠ WARNING: {identifier}'s public key matches {other_id}'s public key! (e={e}, N={N})")
 
             elif action == 'REQUEST':
-                response = self.public_keys.get(identifier, "NOT_FOUND")
-                if response == "NOT_FOUND":
+                target_key = self.public_keys.get(identifier, "NOT_FOUND")
+                if target_key == "NOT_FOUND":
                     print(f"❌ {identifier}'s public key not found.")
+                    response = "NOT_FOUND"
                 else:
                     print(f"🔑 {identifier}'s public key provided.")
-
-                # Mark that this client has requested the other client's public key
-                if identifier == 'A':
-                    self.clients_requested['A'] = True
-                elif identifier == 'B':
-                    self.clients_requested['B'] = True
+                    encrypted_key = rsa.encrypt_rsa(target_key, self.pka_private_key[0], self.pka_private_key[1])
+                    response = ','.join(map(str, encrypted_key))
 
             conn.sendall(response.encode())
 
             # Add client to the connected set
             self.connected_clients.add(identifier)
             self.clients_connected[identifier] = True  # Mark the client as connected
-            
+
             # Check if both clients A and B have requested each other's keys
             if self.clients_requested['A'] and self.clients_requested['B']:
                 print("✅ Both clients A and B have requested and received each other's public key.")
