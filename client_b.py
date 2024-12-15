@@ -1,6 +1,11 @@
 import socket
 import rsa
 import des
+import random
+
+# Function to generate a random nonce
+def generate_random_nonce():
+    return random.randint(100000, 999999)
 
 def register_with_pka(identifier, public_key):
     host = socket.gethostname()
@@ -57,11 +62,37 @@ def B_program():
     B_socket.connect((host, port))
     print(f"Connected to A at {host}:{port}\n")
 
-    # Generate DES key
+    # Step 1: Receive handshake message (N1) from A
+    encrypted_handshake_message = B_socket.recv(1024).decode('utf-8')
+    decrypted_handshake_message = rsa.decrypt_rsa([int(x) for x in encrypted_handshake_message.split(',')], private_key[0], private_key[1])
+    received_N1 = int(decrypted_handshake_message.split(';')[1])
+    print(f"🔑 Received handshake N1: {received_N1}\n")
+
+    # Step 2: Generate and send N2 back to A
+    N2 = generate_random_nonce()
+    handshake_message = f"{received_N1};{N2}"
+    encrypted_handshake_message = rsa.encrypt_rsa(handshake_message, e, N)
+    B_socket.sendall(",".join(map(str, encrypted_handshake_message)).encode())
+    print(f"🏁 Generated N2: {N2}\n")
+
+    print(f"✅ Sent handshake response: {handshake_message}\n")
+
+    # Step 3: Receive final handshake message from A
+    encrypted_handshake_final = B_socket.recv(1024).decode('utf-8')
+    decrypted_handshake_final = rsa.decrypt_rsa([int(x) for x in encrypted_handshake_final.split(',')], private_key[0], private_key[1])
+    received_N2 = int(decrypted_handshake_final)
+    print(f"🔑 Received handshake final (N2): {received_N2}\n")
+
+    if received_N2 != N2:
+        print("❌ Handshake failed: N2 mismatch.")
+        B_socket.close()
+        return
+    else:
+        print("✅ Handshake successful.\n")
+
+    # Step 4: Generate DES key and send encrypted DES key
     des_key = "ABCD1234"
     print(f"🔑 DES key: {des_key}")
-
-    # Encrypt DES key using RSA
     encrypted_des_key = ','.join(map(str, rsa.encrypt_rsa(des_key, e, N)))
     print(f"🔒 Encrypted DES key to send: {encrypted_des_key}")
     B_socket.sendall(encrypted_des_key.encode())
