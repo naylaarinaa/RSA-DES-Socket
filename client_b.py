@@ -29,7 +29,7 @@ def B_program():
     port = 5050
 
     # Generate RSA keys for B
-    (B_public_key, B_private_key) = rsa.generate_keys(bits=32)
+    (B_public_key, B_private_key) = rsa.generate_keys(bits=8)
     print(f"🔑 B RSA Public Key: (e={B_public_key[0]}, N={B_public_key[1]})")
     print(f"🔒 B RSA Private Key: (d={B_private_key[0]}, N={B_private_key[1]})\n")
 

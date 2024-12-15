@@ -1,11 +1,15 @@
+
 import socket
 import threading
+import sys
 
 class PKA:
     def __init__(self):
         self.public_keys = {}  # Dictionary to store public keys
         self.connected_clients = set()  # Track connected clients
         self.clients_connected = {'A': False, 'B': False}  # Track whether A and B are connected
+        self.clients_requested = {'A': False, 'B': False}  # Track if A and B have requested each other's keys
+        self.stop_event = threading.Event()  # Event to signal server stop
 
     def handle_client(self, conn, addr):
         identifier = None  # Track which client is connecting
@@ -26,7 +30,7 @@ class PKA:
                 # Check if the public key matches any other client
                 for other_id, other_key in self.public_keys.items():
                     if identifier != other_id and other_key == key:
-                        print(f"⚠️ WARNING: {identifier}'s public key matches {other_id}'s public key! (e={e}, N={N})")
+                        print(f"⚠ WARNING: {identifier}'s public key matches {other_id}'s public key! (e={e}, N={N})")
 
             elif action == 'REQUEST':
                 response = self.public_keys.get(identifier, "NOT_FOUND")
@@ -35,29 +39,24 @@ class PKA:
                 else:
                     print(f"🔑 {identifier}'s public key provided.")
 
+                # Mark that this client has requested the other client's public key
+                if identifier == 'A':
+                    self.clients_requested['A'] = True
+                elif identifier == 'B':
+                    self.clients_requested['B'] = True
+
             conn.sendall(response.encode())
 
             # Add client to the connected set
             self.connected_clients.add(identifier)
             self.clients_connected[identifier] = True  # Mark the client as connected
             
-            # Check if both clients A and B are connected
-            if self.clients_connected['A'] and self.clients_connected['B']:
-                print("✅ Both clients A and B are connected.")
-                self.stop_server()  # Stop server after both are connected
+            # Check if both clients A and B have requested each other's keys
+            if self.clients_requested['A'] and self.clients_requested['B']:
+                print("✅ Both clients A and B have requested and received each other's public key.")
 
         except Exception as e:
             print(f"Error handling client {addr}: {e}")
-        finally:
-            if identifier:
-                # Remove client from connected set and mark as disconnected
-                self.connected_clients.discard(identifier)
-                self.clients_connected[identifier] = False  # Mark the client as disconnected
-            conn.close()
-
-    def stop_server(self):
-        print("⚠️ Stopping PKA server because both clients are connected...")
-        exit(0)
 
     def start_server(self):
         host = socket.gethostname()
@@ -68,10 +67,20 @@ class PKA:
         server_socket.listen(5)
         print(f"🏁 PKA listening on {host}:{port}...")
 
-        while True:
-            conn, addr = server_socket.accept()
-            print(f"📞 Connection from {addr}")
-            threading.Thread(target=self.handle_client, args=(conn, addr)).start()
+        try:
+            while not self.stop_event.is_set():
+                server_socket.settimeout(1.0)  # Adjust this timeout if necessary
+                try:
+                    conn, addr = server_socket.accept()
+                    print(f"📞 Connection from {addr}")
+                    threading.Thread(target=self.handle_client, args=(conn, addr)).start()
+                except socket.timeout:
+                    continue
+        except KeyboardInterrupt:
+            print("\n⚠ Server interrupted by user. Shutting down...")
+        finally:
+            server_socket.close()
+            print("🏁 PKA server stopped.")
 
 if __name__ == '__main__':
     pka = PKA()

@@ -24,23 +24,6 @@ def request_key_from_pka(identifier):
         response = pka_socket.recv(1024).decode('utf-8')
         return response
 
-def encrypt_message(des_key, message):
-    des.reset_state()
-    des.initialize_key(des_key)
-    des.plain_to_binary(message)
-    des.apply_pads()
-    cipher_bits = ''.join(des.encryption_DES(i, i + 64) for i in range(0, len(des.text_bits), 64))
-    return ''.join(des.binary_to_hex[cipher_bits[i:i + 4]] for i in range(0, len(cipher_bits), 4))
-
-def decrypt_message(des_key, hex_cipher):
-    des.reset_state()
-    des.initialize_key(des_key)
-    des.keys.reverse()
-    des.text_bits[:] = [int(bit) for bit in ''.join(des.hex_to_binary[char] for char in hex_cipher)]
-    des.apply_pads()
-    bin_message = ''.join(des.decryption_DES(i, i + 64) for i in range(0, len(des.text_bits), 64))
-    return ''.join(des.binary_to_text[bin_message[i:i + 8]] for i in range(0, len(bin_message), 8))
-
 def A_program():
     host = socket.gethostname()
     port = 5050
@@ -51,7 +34,7 @@ def A_program():
     print(f"A listening on {host}:{port}...")
 
     # Generate RSA keys
-    (public_key, private_key) = rsa.generate_keys(bits=32)
+    (public_key, private_key) = rsa.generate_keys(bits=8)
     print(f"🔑 A RSA Public Key: (e={public_key[0]}, N={public_key[1]})")
     print(f"🔒 A RSA Private Key: (d={private_key[0]}, N={private_key[1]})\n")
 

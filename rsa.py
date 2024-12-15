@@ -8,10 +8,11 @@ def is_prime(n):
             return False
     return True
 
-def generate_prime(bits=32):  # Reduced bit size for demonstration
+# Menghasilkan bilangan prima acak dengan panjang 8 bit
+def generate_prime(bits=8):  # Reduced bit size for demonstration
     while True:
-        num = random.getrandbits(bits) | (1 << (bits - 1)) | 1
-        if is_prime(num):
+        num = random.getrandbits(bits) | (1 << (bits - 1)) | 1 # buat bilangan ganjil
+        if is_prime(num): # cek prima
             return num
 
 def gcd(a, b):
@@ -27,7 +28,7 @@ def mod_inverse(a, m):
         x0, x1 = x1 - q * x0, x0
     return x1 + m0 if x1 < 0 else x1
 
-def generate_keys(bits=32):
+def generate_keys(bits=8):
     p, q = generate_prime(bits), generate_prime(bits)
     while p == q:
         q = generate_prime(bits)
